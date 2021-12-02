@@ -2,6 +2,7 @@
 #include <igl/cotmatrix.h>
 #include <igl/boundary_loop.h>
 #include <igl/massmatrix.h>
+#include <igl/invert_diag.h>
 
 #include <igl/opengl/glfw/Viewer.h>
 
@@ -19,9 +20,10 @@
 
 Eigen::MatrixXd V,U;
 Eigen::MatrixXi F;
-Eigen::SparseMatrix<double> L;
+Eigen::SparseMatrix<double> L, BL;
 igl::opengl::glfw::Viewer viewer;
 std::vector<mg_data> mg;
+
 
 int main(int argc, char *argv[])
 {
@@ -42,7 +44,10 @@ int main(int argc, char *argv[])
 	U = V;
 	igl::cotmatrix(V,F,L);
 
-	const auto &key_down = [](igl::opengl::glfw::Viewer &viewer,unsigned char key,int mod)->bool
+	/* For BiLaplacian system */
+	bool isBilaplacianSystem = true;
+
+	const auto &key_down = [&isBilaplacianSystem](igl::opengl::glfw::Viewer &viewer,unsigned char key,int mod)->bool
 	{
 		switch(key)
 		{
@@ -63,9 +68,21 @@ int main(int argc, char *argv[])
 			MatrixXd Upre = U;
 
 			// compute linear system
-			SparseMatrix<double> M;
+			SparseMatrix<double> M, MInv;
 			igl::massmatrix(U, F, igl::MASSMATRIX_TYPE_BARYCENTRIC, M);
-			SparseMatrix<double> LHS = M - delta * L;
+			if (isBilaplacianSystem) {
+				igl::invert_diag(M, MInv);
+				BL = L * MInv * L;
+			}
+			SparseMatrix<double> LHS;
+			if (isBilaplacianSystem) {
+				std::cout << "Working with a Bilaplacian system \n";
+				LHS = M - delta * BL;
+			}
+			else {
+				std::cout << "Working with a Laplacian system \n";
+				LHS = M - delta * L;
+			}
 			MatrixXd RHS = M*U;
 
 			// mg solve

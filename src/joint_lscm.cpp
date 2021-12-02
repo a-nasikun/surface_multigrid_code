@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include "joint_lscm.h"
 
 bool joint_lscm(
