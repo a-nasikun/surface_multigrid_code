@@ -18,6 +18,8 @@
 #include <normalize_unit_area.h>
 #include <min_quad_with_fixed_mg.h>
 
+#include <chrono>
+
 Eigen::MatrixXd V,U;
 Eigen::MatrixXi F;
 Eigen::SparseMatrix<double> L, BL;
@@ -30,16 +32,25 @@ int main(int argc, char *argv[])
 	using namespace Eigen;
 	using namespace std;
 
+	/* Timer */
+	std::chrono::high_resolution_clock::time_point t0, t1, t2, t3;
+	std::chrono::duration<double> duration;
+
 	// load mesh
 	igl::read_triangle_mesh("../../meshes/beard_man.obj", V, F);
 	normalize_unit_area(V,F);
 	cout << "original mesh: |V| " << V.rows() << ", |F|: " << F.rows() << endl;
 
+
 	// construct multigrid hierarchy
+	t0 = std::chrono::high_resolution_clock::now();
 	int min_coarsest_nV = 500;
 	float coarsening_ratio = 0.25;
 	int decimation_type = 1;
 	mg_precompute(V,F,coarsening_ratio, min_coarsest_nV, decimation_type, mg);
+	t1 = std::chrono::high_resolution_clock::now();
+	duration = t1 - t0;
+	std::cout << "[1] Build the hierarchy in " << duration.count() << "seconds \n";
 
 	U = V;
 	igl::cotmatrix(V,F,L);
@@ -47,7 +58,7 @@ int main(int argc, char *argv[])
 	/* For BiLaplacian system */
 	bool isBilaplacianSystem = true;
 
-	const auto &key_down = [&isBilaplacianSystem](igl::opengl::glfw::Viewer &viewer,unsigned char key,int mod)->bool
+	const auto &key_down = [&isBilaplacianSystem, &t0, &t1, &duration](igl::opengl::glfw::Viewer &viewer,unsigned char key,int mod)->bool
 	{
 		switch(key)
 		{
@@ -63,6 +74,9 @@ int main(int argc, char *argv[])
 			int maxIter = 20;
 			double tolerance = 1e-16;
 			double mg_tol = 5e-7;
+
+			
+			
 
 			// save previous mesh
 			MatrixXd Upre = U;
@@ -86,11 +100,20 @@ int main(int argc, char *argv[])
 			MatrixXd RHS = M*U;
 
 			// mg solve
+			t0 = std::chrono::high_resolution_clock::now();
 			min_quad_with_fixed_mg_data solverData;
 			SimplicialLDLT<SparseMatrix<double>> coarseSolver;
 			min_quad_with_fixed_mg_precompute(LHS, solverData, mg, coarseSolver);
+			t1 = std::chrono::high_resolution_clock::now();
+			duration = t1 - t0;	
+			std::cout << "[2] Precompute in " << duration.count() << "seconds \n";
 			vector<double> rHis;
+
+			t0 = std::chrono::high_resolution_clock::now();
 			min_quad_with_fixed_mg_solve(solverData, RHS, Upre, coarseSolver, mg_tol, mg, U, rHis);
+			t1 = std::chrono::high_resolution_clock::now();
+			duration = t1 - t0;
+			std::cout << "[3] Solve in " << duration.count() << "seconds \n";
 
 			// rescale output 
 			normalize_unit_area(U,F);
