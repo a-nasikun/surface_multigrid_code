@@ -1,4 +1,5 @@
 # Surface Multigrid via Intrinsic Prolongation
+*This code is from Derek's and Eris' project. I am forking for the sake of my own tweaking and testing of this codes.*
 <img src="./assets/teaser.jpg" width="100%">
 
 Public code release for [Surface Multigrid via Intrinsic Prolongation](https://www.dgp.toronto.edu/projects/intrinsic-prolongation/). For more details, please refer to:
